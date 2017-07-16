@@ -10,6 +10,7 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.slf4j.Logger;
@@ -17,6 +18,7 @@ import org.slf4j.LoggerFactory;
 
 import model.User;
 import util.HttpRequestUtils;
+import util.IOUtils;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -34,15 +36,32 @@ public class RequestHandler extends Thread {
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
         	
         	BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"));
-        	//요청라인
+        	boolean isPost = false;
+        	//요청
         	String line = br.readLine();
+        	if(line == null) return;
+        	if(line.toUpperCase().startsWith("POST")) isPost = true;
+        	String url = HttpRequestUtils.getRequestLine(line);
         	log.debug("firstHeader :{}", line);
-        	if(line == null) {
-        		return;
+        	
+        	//헤더
+        	Map<String, String> headers = new HashMap<String, String>();
+        	while(!"".equals(line = br.readLine())){
+        		String[] headerToken = line.split(": ");
+        		headers.put(headerToken[0], headerToken[1]);
         	}
         	
-        	//데이터 없는 redirect
-        	String requestUrl = HttpRequestUtils.getRequestLine(line);
+        	//POST인 경우 처리
+        	if(isPost){
+        		String requestBody = IOUtils.readData(br, Integer.parseInt(headers.get("Content-Length")));
+        		if(url.startsWith("/user/create")){
+        			Map<String, String> params = HttpRequestUtils.parseQueryString(requestBody);
+        			User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
+        			url = "/index.html";
+        			log.debug("User : {})", user);
+        		}
+        	}
+        	/*
         	//회원가입
         	if(requestUrl.startsWith("/user/create")){
         		String[] requests = requestUrl.split("\\?");
@@ -51,15 +70,9 @@ public class RequestHandler extends Thread {
         		requestUrl = "/index.html";
         		log.debug("User : {})", user);
         	}
-        	/*
-        	//요청헤더, 공백, 본문
-        	while(!"".equals(line)){
-        		line = br.readLine();
-        		log.debug("header :{}", line);
-        	}
         	*/
             DataOutputStream dos = new DataOutputStream(out);
-            byte[] body = Files.readAllBytes(new File("./webapp"+requestUrl).toPath());
+            byte[] body = Files.readAllBytes(new File("./webapp"+url).toPath());
             response200Header(dos, body.length);
             responseBody(dos, body);
         } catch (IOException e) {
