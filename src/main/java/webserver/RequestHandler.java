@@ -3,7 +3,6 @@ package webserver;
 import java.io.BufferedReader;
 import java.io.DataOutputStream;
 import java.io.File;
-import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
@@ -58,23 +57,18 @@ public class RequestHandler extends Thread {
         			Map<String, String> params = HttpRequestUtils.parseQueryString(requestBody);
         			User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
         			url = "/index.html";
-        			log.debug("User : {})", user);
+        			log.debug("User : {}", user);
+
+        			DataOutputStream dos = new DataOutputStream(out);
+        			response302Header(dos);
         		}
+        	}else{
+        		DataOutputStream dos = new DataOutputStream(out);
+        		byte[] body = Files.readAllBytes(new File("./webapp"+url).toPath());
+        		response200Header(dos, body.length);
+        		responseBody(dos, body);
         	}
-        	/*
-        	//회원가입
-        	if(requestUrl.startsWith("/user/create")){
-        		String[] requests = requestUrl.split("\\?");
-        		Map<String, String> params = HttpRequestUtils.parseQueryString(requests[1]);
-        		User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
-        		requestUrl = "/index.html";
-        		log.debug("User : {})", user);
-        	}
-        	*/
-            DataOutputStream dos = new DataOutputStream(out);
-            byte[] body = Files.readAllBytes(new File("./webapp"+url).toPath());
-            response200Header(dos, body.length);
-            responseBody(dos, body);
+
         } catch (IOException e) {
             log.error(e.getMessage());
         }
@@ -86,6 +80,15 @@ public class RequestHandler extends Thread {
             dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
             dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
             dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+    
+    private void response302Header(DataOutputStream dos) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Found \r\n");
+            dos.writeBytes("Location: /index.html \r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
         }
