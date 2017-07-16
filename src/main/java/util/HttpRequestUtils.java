@@ -17,10 +17,8 @@ public class HttpRequestUtils {
     private static final Logger log = LoggerFactory.getLogger(HttpRequestUtils.class);
 
 	
-	public static String getUrl(String firstLine){
-    	String pagePath = firstLine.split(" ")[1];
-    	log.debug("request path : {}", pagePath);
-    	return pagePath;
+	public static String getRequestLine(String firstLine){
+    	return firstLine.split(" ")[1];
 	}
 	
     /**
