@@ -15,6 +15,7 @@ import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import db.DataBase;
 import model.User;
 import util.HttpRequestUtils;
 import util.IOUtils;
@@ -53,14 +54,26 @@ public class RequestHandler extends Thread {
         	//POST인 경우 처리
         	if(isPost){
         		String requestBody = IOUtils.readData(br, Integer.parseInt(headers.get("Content-Length")));
-        		if(url.startsWith("/user/create")){
-        			Map<String, String> params = HttpRequestUtils.parseQueryString(requestBody);
+        		Map<String, String> params = HttpRequestUtils.parseQueryString(requestBody);
+        		if(url.equals("/user/create")){
         			User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
+        			DataBase.addUser(user);
         			url = "/index.html";
         			log.debug("User : {}", user);
 
         			DataOutputStream dos = new DataOutputStream(out);
         			response302Header(dos);
+        		}else if(url.equals("/user/login")){
+        			User user = DataBase.findUserById(params.get("userId"));
+        			String cookie = "logined=";
+        			DataOutputStream dos = new DataOutputStream(out);
+        			if(user != null && user.getPassword().equals(params.get("password"))){
+        				log.debug("login success");
+            			response302HeaderWithLocationAndCookie(dos, "/index.html", "logined=true");
+        			}else{
+        				log.debug("login fail");
+        				response302HeaderWithLocationAndCookie(dos, "/user/login_failed.html", "logined=false");
+        			}
         		}
         	}else{
         		DataOutputStream dos = new DataOutputStream(out);
@@ -89,6 +102,16 @@ public class RequestHandler extends Thread {
         try {
             dos.writeBytes("HTTP/1.1 302 Found \r\n");
             dos.writeBytes("Location: /index.html \r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+    
+    private void response302HeaderWithLocationAndCookie(DataOutputStream dos, String location, String cookie) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Found \r\n");
+            dos.writeBytes("Location: "+location+" \r\n");
+            dos.writeBytes("Set-Cookie: "+cookie+" \r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
         }
