@@ -37,7 +37,10 @@ public class RequestHandler extends Thread {
         	
         	BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"));
         	boolean isPost = false;
-        	//요청
+        	boolean isLogined = false;
+        	String contentType = "text/html";
+        	
+        	//요청 분리
         	String line = br.readLine();
         	if(line == null) return;
         	if(line.toUpperCase().startsWith("POST")) isPost = true;
@@ -50,6 +53,15 @@ public class RequestHandler extends Thread {
         		String[] headerToken = line.split(": ");
         		headers.put(headerToken[0], headerToken[1]);
         	}
+
+        	//응답타입 체크
+        	if(headers.containsKey("Accept")) contentType = headers.get("Accept");
+        	
+        	//쿠키 & 로그인체크
+        	Map<String, String> cookies = HttpRequestUtils.parseCookies(headers.get("Cookie"));
+        	if(cookies.containsKey("logined") && cookies.get("logined").equals("true")){
+        		isLogined = true;
+        	}
         	
         	//POST인 경우 처리
         	if(isPost){
@@ -59,13 +71,12 @@ public class RequestHandler extends Thread {
         			User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
         			DataBase.addUser(user);
         			url = "/index.html";
-        			log.debug("User : {}", user);
+        			log.debug("add User : {}", user);
 
         			DataOutputStream dos = new DataOutputStream(out);
         			response302Header(dos);
         		}else if(url.equals("/user/login")){
         			User user = DataBase.findUserById(params.get("userId"));
-        			String cookie = "logined=";
         			DataOutputStream dos = new DataOutputStream(out);
         			if(user != null && user.getPassword().equals(params.get("password"))){
         				log.debug("login success");
@@ -77,8 +88,12 @@ public class RequestHandler extends Thread {
         		}
         	}else{
         		DataOutputStream dos = new DataOutputStream(out);
+        		if(url.equals("/user/list")){
+        			if(isLogined) url = "/user/login.html";
+        			else url = "/user/list.html";
+        		}
         		byte[] body = Files.readAllBytes(new File("./webapp"+url).toPath());
-        		response200Header(dos, body.length);
+        		response200Header(dos, contentType, body.length);
         		responseBody(dos, body);
         	}
 
@@ -87,10 +102,10 @@ public class RequestHandler extends Thread {
         }
     }
 
-    private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
+    private void response200Header(DataOutputStream dos, String contentType, int lengthOfBodyContent) {
         try {
             dos.writeBytes("HTTP/1.1 200 OK \r\n");
-            dos.writeBytes("Content-Type: text/html;charset=utf-8\r\n");
+            dos.writeBytes("Content-Type: "+contentType+";charset=utf-8\r\n");
             dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
