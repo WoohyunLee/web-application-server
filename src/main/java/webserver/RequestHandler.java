@@ -16,6 +16,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import db.DataBase;
+import model.HttpRequest;
 import model.User;
 import util.HttpRequestUtils;
 import util.IOUtils;
